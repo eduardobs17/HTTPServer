@@ -1,9 +1,13 @@
+import com.sun.xml.internal.ws.api.message.Header;
+
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URL;
+import java.util.Date;
 import java.util.StringTokenizer;
 
 public class HTTPServer extends Thread {
@@ -14,7 +18,7 @@ public class HTTPServer extends Thread {
 
     public static void main(String[] args) throws Exception {
         ServerSocket serverSocket = new ServerSocket(puerto, 10, InetAddress.getByName("127.0.0.1"));
-        System.out.println("HTTPServer iniciado en el puerto " +  puerto + '\n');
+        System.out.println("HTTP server iniciado en el puerto " +  puerto + '\n');
 
         while (true) {
             Socket socket = serverSocket.accept();
@@ -79,7 +83,8 @@ public class HTTPServer extends Thread {
         String NEW_LINE = "\r\n";
 
         String statusLine, contentLengthLine;
-        String serverdetails = Headers.SERVER + ": Servidor Java";
+        String date = Headers.DATE + ": " + new Date().toString() + NEW_LINE;
+        String serverdetails = Headers.SERVER + ": Servidor Java" + NEW_LINE;
         String contentTypeLine = Headers.CONTENT_TYPE + ": text/html" + NEW_LINE;
 
         if (statusCode == 200) {
@@ -90,9 +95,10 @@ public class HTTPServer extends Thread {
 
         statusLine += NEW_LINE;
         responseString = HTML_START + responseString + HTML_END;
-        contentLengthLine = Headers.CONTENT_LENGTH + responseString.length() + NEW_LINE;
+        contentLengthLine = Headers.CONTENT_LENGTH + ": " + responseString.length() + NEW_LINE;
 
         outClient.writeBytes(statusLine);
+        outClient.writeBytes(date);
         outClient.writeBytes(serverdetails);
         outClient.writeBytes(contentTypeLine);
         outClient.writeBytes(contentLengthLine);
@@ -110,6 +116,7 @@ public class HTTPServer extends Thread {
      */
     private void homePage() throws Exception {
         String responseBuffer = "<b>HTTP Server Home Page.</b><BR><BR>" +
+                "<b>Hola!</b><BR><BR>" +
                 "<b>Para ver la pagina \"hola\", use: http://localhost:" + puerto + "/hola/nombre</b><BR>";
         sendResponse(200, responseBuffer);
     }
@@ -131,14 +138,16 @@ public class HTTPServer extends Thread {
         static final String CONNECTION = "Connection";
         static final String CONTENT_LENGTH = "Content-Length";
         static final String CONTENT_TYPE = "Content-Type";
+        static final String DATE = "Date";
     }
 
     /**
      * class used to store status line constants
-     *
      */
     private static class Status {
         static final String HTTP_200 = "HTTP/1.1 200 OK";
         static final String HTTP_404 = "HTTP/1.1 404 Not Found";
+        static final String HTTP_406 = "HTTP/1.1 406 Not Acceptable";
+        static final String HTTP_501 = "HTTP/1.1 501 Not Implemented";
     }
 }
