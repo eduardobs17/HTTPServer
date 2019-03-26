@@ -60,7 +60,7 @@ public class HTTPServer extends Thread {
                 } else if (httpQueryString.startsWith("/hola")) {
                     helloPage(httpQueryString.substring(httpQueryString.lastIndexOf('/') + 1));
                 } else {
-                    sendResponse(404, "<b>No se encontró el recurso.</b>");
+                    sendResponse(404, "<b>ERROR 404. No se encontró el recurso.</b>");
                 }
             } else if (httpMethod.equals("HEAD")) {
                 System.out.println("asdasdasdasdasdasd");
@@ -76,6 +76,7 @@ public class HTTPServer extends Thread {
 
     /**
      * Method used to compose the response back to the client.
+     * tipo = 0 => get o post; tipo = 1 => head
      */
     private void sendResponse(int statusCode, String responseString) throws Exception {
         String HTML_START = "<html><title>Mini servidor HTTP</title><body>";
@@ -115,9 +116,7 @@ public class HTTPServer extends Thread {
      *
      */
     private void homePage() throws Exception {
-        String responseBuffer = "<b>HTTP Server Home Page.</b><BR><BR>" +
-                "<b>Hola!</b><BR><BR>" +
-                "<b>Para ver la pagina \"hola\", use: http://localhost:" + puerto + "/hola/nombre</b><BR>";
+        String responseBuffer = "<H1>Hola!</H1><BR>" + "<H3>Bienvenido al Mini Server</H3>";
         sendResponse(200, responseBuffer);
     }
 
