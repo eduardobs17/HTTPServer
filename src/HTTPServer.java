@@ -13,6 +13,8 @@ public class HTTPServer extends Thread {
     private static final int puerto = 8080;
     private final static String docRaiz = "html";
     private final static String fichGET = "get.html";
+    private final static String fichHEAD = "head.html";
+    private final static String fichPOST = "post.html";
 
     public static void main(String[] args) throws Exception {
         ServerSocket serverSocket = new ServerSocket(puerto, 10, InetAddress.getByName("127.0.0.1"));
@@ -51,14 +53,19 @@ public class HTTPServer extends Thread {
             }
             System.out.println(peticion + "\n\n");
 
-            if (httpMethod.equals("GET")) {
-                sendResponse(200, httpQueryString, "GET");
-            } else if (httpMethod.equals("HEAD")) {
-                System.out.println("asdasdasdasdasdasd");
-            } else if (httpMethod.equals("POST")) {
-                System.out.println("asdasdasd");
-            } else {
-                sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR");
+            switch (httpMethod) {
+                case "GET":
+                    sendResponse(200, httpQueryString, "GET");
+                    break;
+                case "HEAD":
+                    sendResponse(200, httpQueryString, "HEAD");
+                    break;
+                case "POST":
+                    sendResponse(200, httpQueryString, "POST");
+                    break;
+                default:
+                    sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR");
+                    break;
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -70,7 +77,26 @@ public class HTTPServer extends Thread {
      * tipo = 0 => get o post; tipo = 1 => head
      */
     private void sendResponse (int statusCode, String responseString, String tipoPeticion) {
-        if (tipoPeticion.equals("GET")) {
+        String HTML_START = "<html><title>Mini servidor HTTP</title><body>";
+        String HTML_END = "</body></html>";
+        String NEW_LINE = "\r\n";
+
+        String statusLine, contentLengthLine;
+        String date = Headers.DATE + ": " + new Date().toString() + NEW_LINE;
+        String serverdetails = Headers.SERVER + ": Servidor Java" + NEW_LINE;
+        String contentTypeLine = Headers.CONTENT_TYPE + ": text/html" + NEW_LINE;
+
+        if (statusCode == 200) {
+            statusLine = Status.HTTP_200;
+        } else if (statusCode == 404) {
+            statusLine = Status.HTTP_404;
+        } else if (statusCode == 4500) {
+            statusLine = Status.HTTP_500;
+        } else {
+            statusLine = Status.HTTP_501;
+        }
+
+        if (tipoPeticion.equals("GET") || tipoPeticion.equals("HEAD")) {
             String fich;
 
             if (responseString.equals("/")) {
@@ -97,32 +123,16 @@ public class HTTPServer extends Thread {
                 String tipoMime = MimeTypes.mimeTypeString(fich);
                 int n = sin.available();
 
-                String HTML_START = "<html><title>Mini servidor HTTP</title><body>";
-                String HTML_END = "</body></html>";
-                String NEW_LINE = "\r\n";
-
-                String statusLine, contentLengthLine;
-                String date = Headers.DATE + ": " + new Date().toString() + NEW_LINE;
-                String serverdetails = Headers.SERVER + ": Servidor Java" + NEW_LINE;
-                String contentTypeLine = Headers.CONTENT_TYPE + ": " + tipoMime + NEW_LINE;
-
-                if (statusCode == 200) {
-                    statusLine = Status.HTTP_200;
-                } else if (statusCode == 404) {
-                    statusLine = Status.HTTP_404;
-                } else if (statusCode == 4500) {
-                    statusLine = Status.HTTP_500;
-                } else {
-                    statusLine = Status.HTTP_501;
-                }
-
                 statusLine += NEW_LINE;
                 contentLengthLine = Headers.CONTENT_LENGTH + ": " + n + NEW_LINE;
 
                 headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine);
-                byte[] buf = new byte[2048];
-                while((n = sin.read(buf)) >= 0) {
-                    outClient.write(buf, 0, n);
+
+                if (tipoPeticion.equals("GET")) {
+                    byte[] buf = new byte[2048];
+                    while((n = sin.read(buf)) >= 0) {
+                        outClient.write(buf, 0, n);
+                    }
                 }
 
                 sin.close();
@@ -132,25 +142,6 @@ public class HTTPServer extends Thread {
             }
         } else {
             try {
-                String HTML_START = "<html><title>Mini servidor HTTP</title><body>";
-                String HTML_END = "</body></html>";
-                String NEW_LINE = "\r\n";
-
-                String statusLine, contentLengthLine;
-                String date = Headers.DATE + ": " + new Date().toString() + NEW_LINE;
-                String serverdetails = Headers.SERVER + ": Servidor Java" + NEW_LINE;
-                String contentTypeLine = Headers.CONTENT_TYPE + ": text/html" + NEW_LINE;
-
-                if (statusCode == 200) {
-                    statusLine = Status.HTTP_200;
-                } else if (statusCode == 404) {
-                    statusLine = Status.HTTP_404;
-                } else if (statusCode == 4500) {
-                    statusLine = Status.HTTP_500;
-                } else {
-                    statusLine = Status.HTTP_501;
-                }
-
                 statusLine += NEW_LINE;
                 responseString = HTML_START + "<b>ERROR " + statusCode + ". </b>" + responseString + HTML_END;
                 contentLengthLine = Headers.CONTENT_LENGTH + ": " + responseString.length() + NEW_LINE;
@@ -204,8 +195,6 @@ public class HTTPServer extends Thread {
         private final static String mime_image_png = "image/png";
         private final static String mime_audio_midi = "audio/midi";
         private final static String mime_audio_mpeg = "audio/mpeg";
-        private final static String mime_video_webm = "video/webm";
-        private final static String mime_video_ogg = "video/ogg";
         private final static String mime_app_os = "application/octet-stream";
 
         /** Devuelve el tipo MIME que corresponde a un nombre de archivo dado. */
@@ -222,14 +211,10 @@ public class HTTPServer extends Thread {
                 tipo = mime_image_jpg;
             else if (fichero.endsWith(".png"))
                 tipo = mime_image_png;
-            else if (fichero.endsWith(".midi"))
+            else if (fichero.endsWith(".mid"))
                 tipo = mime_audio_midi;
             else if (fichero.endsWith(".mpeg") || fichero.endsWith(".mpg") || fichero.endsWith(".mp1") || fichero.endsWith(".mp2") || fichero.endsWith(".mp3"))
                 tipo = mime_audio_mpeg;
-            else if (fichero.endsWith(".webm"))
-                tipo = mime_video_webm;
-            else if (fichero.endsWith(".ogg"))
-                tipo = mime_video_ogg;
             else
                 tipo = mime_text_plain;
 
