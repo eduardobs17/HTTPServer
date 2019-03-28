@@ -26,13 +26,16 @@ public class HTTPServer extends Thread {
         }
     }
 
+    /** Constructor de la clase HTTPServer. */
     private HTTPServer(Socket cl) { client = cl; }
 
+    /** Codigo que ejecuta cada hilo cuando se crea. */
     public void run() {
         try {
             BufferedReader inClient = new BufferedReader(new InputStreamReader(client.getInputStream()));
             outClient = new DataOutputStream(client.getOutputStream());
 
+            /* String que guarda el encabezado de la peticion. */
             String requestString = inClient.readLine();
             String headerLine = requestString;
 
@@ -40,10 +43,12 @@ public class HTTPServer extends Thread {
                 return;
 
             StringTokenizer tokenizer = new StringTokenizer(headerLine);
+            /* String que guarda el metodo HTTP que se usa. */
             String httpMethod = tokenizer.nextToken();
             String httpQueryString = tokenizer.nextToken();
 
             System.out.println("La peticion HTTP es...");
+            /* String que guarda la peticion. */
             StringBuilder peticion = new StringBuilder();
             int postData = -1;
             while (inClient.ready()) {
@@ -58,23 +63,16 @@ public class HTTPServer extends Thread {
 
             switch (httpMethod) {
                 case "GET":
-                    sendResponse(200, httpQueryString, "GET", "");
+                    sendResponse(200, httpQueryString, "GET");
                     break;
                 case "HEAD":
-                    sendResponse(200, httpQueryString, "HEAD", "");
+                    sendResponse(200, httpQueryString, "HEAD");
                     break;
                 case "POST":
-                    String postDataS = "";
-                    if (postData > 0) {
-                        char[] charArray = new char[postData];
-                        inClient.read(charArray, 0, postData);
-                        postDataS = new String(charArray);
-                        postDataS = postDataS.substring(5);
-                    }
-                    sendResponse(200, httpQueryString, "POST", postDataS);
+                    sendResponse(200, httpQueryString, "POST");
                     break;
                 default:
-                    sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR", "");
+                    sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR");
                     break;
             }
         } catch (Exception e) {
@@ -82,20 +80,19 @@ public class HTTPServer extends Thread {
         }
     }
 
-    /**
-     * Method used to compose the response back to the client.
-     * tipo = 0 => get o post; tipo = 1 => head
-     */
-    private void sendResponse (int statusCode, String responseString, String tipoPeticion, String userPost) {
+    /** Metodo usado para crear la respuesta para el cliente. */
+    private void sendResponse (int statusCode, String responseString, String tipoPeticion) {
         String HTML_START = "<html><title>Mini servidor HTTP</title><body>";
         String HTML_END = "</body></html>";
         String NEW_LINE = "\r\n";
 
+        /* Crea las variables de los encabezados. */
         String statusLine, contentLengthLine;
         String date = Headers.DATE + ": " + new Date().toString() + NEW_LINE;
         String serverdetails = Headers.SERVER + ": Servidor Java" + NEW_LINE;
         String contentTypeLine = Headers.CONTENT_TYPE + ": ";
 
+        /* Pone el codigo status de la respuesta. */
         if (statusCode == 200) {
             statusLine = Status.HTTP_200;
         } else if (statusCode == 404) {
@@ -106,6 +103,7 @@ public class HTTPServer extends Thread {
             statusLine = Status.HTTP_501;
         }
 
+        /* GET, HEAD o POST */
         if (!tipoPeticion.equals("ERROR")) {
             String fich;
 
@@ -118,20 +116,22 @@ public class HTTPServer extends Thread {
             }
 
             try {
+                /* Abre el archivo. */
                 File f = new File(fich);
 
                 if (!f.exists()) {
-                    sendResponse(404, "<b>No se encontró el recurso.</b>", "ERROR", "");
+                    sendResponse(404, "<b>No se encontró el recurso.</b>", "ERROR");
                     return;
                 }
 
                 if (!f.canRead()) {
-                    sendResponse(500, "<b>Error interno.</b>", "ERROR", "");
+                    sendResponse(500, "<b>Error interno.</b>", "ERROR");
                      return;
                 }
 
-                // Ahora lee el fichero que se ha solicitado
+                /* Lee el fichero que se ha solicitado. */
                 InputStream sin = new FileInputStream(f);
+                /* Identifica el tipo de la peticion. */
                 String tipoMime = MimeTypes.mimeTypeString(fich);
                 contentTypeLine +=  tipoMime + NEW_LINE;
                 int n = sin.available();
@@ -141,6 +141,7 @@ public class HTTPServer extends Thread {
 
                 headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine);
 
+                /* Muestra los diferentes archivos en la pantalla del navegador. */
                 if (!tipoPeticion.equals("HEAD")) {
                     byte[] buf = new byte[2048];
                     while ((n = sin.read(buf)) >= 0) {
@@ -168,7 +169,7 @@ public class HTTPServer extends Thread {
         }
     }
 
-    /** Metodo que completa los encabezados. */
+    /** Metodo que escriba los encabezados. */
     private void headers(String NEW_LINE, String statusLine, String contentLengthLine, String date, String serverdetails, String contentTypeLine) throws IOException {
         outClient.writeBytes(statusLine);
         outClient.writeBytes(date);
