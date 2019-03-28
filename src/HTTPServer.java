@@ -12,8 +12,7 @@ public class HTTPServer extends Thread {
     private DataOutputStream outClient = null;
     private static final int puerto = 8080;
     private final static String docRaiz = "html";
-    private final static String fichGET = "get.html";
-    private final static String fichHEAD = "head.html";
+    private final static String fichGET = "index.html";
     private final static String fichPOST = "post.html";
 
     public static void main(String[] args) throws Exception {
@@ -46,25 +45,36 @@ public class HTTPServer extends Thread {
 
             System.out.println("La peticion HTTP es...");
             StringBuilder peticion = new StringBuilder();
+            int postData = -1;
             while (inClient.ready()) {
-                /* Read the HTTP request until the end */
+                if (requestString.contains("Content-Length:")) {
+                    postData = new Integer(requestString.substring(requestString.indexOf("Content-Length:") + 16));
+                }
                 peticion.append(requestString).append("\n");
+                if (requestString.equals("")) { break; }
                 requestString = inClient.readLine();
             }
             System.out.println(peticion + "\n\n");
 
             switch (httpMethod) {
                 case "GET":
-                    sendResponse(200, httpQueryString, "GET");
+                    sendResponse(200, httpQueryString, "GET", "");
                     break;
                 case "HEAD":
-                    sendResponse(200, httpQueryString, "HEAD");
+                    sendResponse(200, httpQueryString, "HEAD", "");
                     break;
                 case "POST":
-                    sendResponse(200, httpQueryString, "POST");
+                    String postDataS = "";
+                    if (postData > 0) {
+                        char[] charArray = new char[postData];
+                        inClient.read(charArray, 0, postData);
+                        postDataS = new String(charArray);
+                        postDataS = postDataS.substring(5);
+                    }
+                    sendResponse(200, httpQueryString, "POST", postDataS);
                     break;
                 default:
-                    sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR");
+                    sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR", "");
                     break;
             }
         } catch (Exception e) {
@@ -76,7 +86,7 @@ public class HTTPServer extends Thread {
      * Method used to compose the response back to the client.
      * tipo = 0 => get o post; tipo = 1 => head
      */
-    private void sendResponse (int statusCode, String responseString, String tipoPeticion) {
+    private void sendResponse (int statusCode, String responseString, String tipoPeticion, String userPost) {
         String HTML_START = "<html><title>Mini servidor HTTP</title><body>";
         String HTML_END = "</body></html>";
         String NEW_LINE = "\r\n";
@@ -84,7 +94,7 @@ public class HTTPServer extends Thread {
         String statusLine, contentLengthLine;
         String date = Headers.DATE + ": " + new Date().toString() + NEW_LINE;
         String serverdetails = Headers.SERVER + ": Servidor Java" + NEW_LINE;
-        String contentTypeLine = Headers.CONTENT_TYPE + ": text/html" + NEW_LINE;
+        String contentTypeLine = Headers.CONTENT_TYPE + ": ";
 
         if (statusCode == 200) {
             statusLine = Status.HTTP_200;
@@ -96,31 +106,34 @@ public class HTTPServer extends Thread {
             statusLine = Status.HTTP_501;
         }
 
-        if (tipoPeticion.equals("GET") || tipoPeticion.equals("HEAD")) {
+        if (!tipoPeticion.equals("ERROR")) {
             String fich;
 
-            if (responseString.equals("/")) {
+            if (responseString.endsWith("/")) {
                 fich = docRaiz + "/" + fichGET;
-            } else {
+            } else if (!tipoPeticion.equals("POST")){
                 fich = docRaiz + responseString;
+            } else {
+                fich = docRaiz + "/" + fichPOST;
             }
 
             try {
                 File f = new File(fich);
 
                 if (!f.exists()) {
-                    sendResponse(404, "<b>No se encontró el recurso.</b>", "ERROR");
+                    sendResponse(404, "<b>No se encontró el recurso.</b>", "ERROR", "");
                     return;
                 }
 
                 if (!f.canRead()) {
-                    sendResponse(500, "<b>Error interno.</b>", "ERROR");
+                    sendResponse(500, "<b>Error interno.</b>", "ERROR", "");
                      return;
                 }
 
                 // Ahora lee el fichero que se ha solicitado
                 InputStream sin = new FileInputStream(f);
                 String tipoMime = MimeTypes.mimeTypeString(fich);
+                contentTypeLine +=  tipoMime + NEW_LINE;
                 int n = sin.available();
 
                 statusLine += NEW_LINE;
@@ -128,9 +141,9 @@ public class HTTPServer extends Thread {
 
                 headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine);
 
-                if (tipoPeticion.equals("GET")) {
+                if (!tipoPeticion.equals("HEAD")) {
                     byte[] buf = new byte[2048];
-                    while((n = sin.read(buf)) >= 0) {
+                    while ((n = sin.read(buf)) >= 0) {
                         outClient.write(buf, 0, n);
                     }
                 }
