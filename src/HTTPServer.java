@@ -11,7 +11,7 @@ public class HTTPServer extends Thread {
     private Socket client;
     private DataOutputStream outClient = null;
     private static final int puerto = 8080;
-    private final static String docRaiz = "html";
+    //private final static String docRaiz = "html";
     private final static String fichGET = "index.html";
     private final static String fichPOST = "post.html";
 
