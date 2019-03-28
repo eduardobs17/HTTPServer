@@ -48,7 +48,7 @@ public class HTTPServer extends Thread {
             int postData = -1;
             while (inClient.ready()) {
                 if (requestString.contains("Content-Length:")) {
-                    postData = new Integer(requestString.substring(requestString.indexOf("Content-Length:") + 16));
+                    postData = Integer.valueOf(requestString.substring(requestString.indexOf("Content-Length:") + 16));
                 }
                 peticion.append(requestString).append("\n");
                 if (requestString.equals("")) { break; }
