@@ -2,7 +2,10 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.StringTokenizer;
 
 /** Clase principal. */
@@ -13,7 +16,11 @@ public class HTTPServer extends Thread {
     private static final int puerto = 8080;
     private final static String docRaiz = "html";
     private final static String fichGET = "index.html";
-    private final static String fichPOST = "post.html";
+    private final static String fichPOST = "usuario.html";
+
+    /*Para bitacora*/
+
+    List<ConsultaGenerada> bitacora=new ArrayList<ConsultaGenerada>();
 
     public static void main(String[] args) throws Exception {
         ServerSocket serverSocket = new ServerSocket(puerto, 10, InetAddress.getByName("127.0.0.1"));
@@ -35,9 +42,13 @@ public class HTTPServer extends Thread {
             BufferedReader inClient = new BufferedReader(new InputStreamReader(client.getInputStream()));
             outClient = new DataOutputStream(client.getOutputStream());
 
+
             /* String que guarda el encabezado de la peticion. */
             String requestString = inClient.readLine();
             String headerLine = requestString;
+
+
+
 
             if (headerLine == null)
                 return;
@@ -47,34 +58,85 @@ public class HTTPServer extends Thread {
             String httpMethod = tokenizer.nextToken();
             String httpQueryString = tokenizer.nextToken();
 
+
             System.out.println("La peticion HTTP es...");
             /* String que guarda la peticion. */
             StringBuilder peticion = new StringBuilder();
-            int postData = -1;
-            while (inClient.ready()) {
-                if (requestString.contains("Content-Length:")) {
+            int postData = 0;
+            int contador=0;
+            boolean isPost=false;
+
+            while (inClient.ready()) { //Aca es
+                if (requestString.contains("Content-Length:")) { //Eliminar una lina innecesaria
                     postData = Integer.valueOf(requestString.substring(requestString.indexOf("Content-Length:") + 16));
+                    isPost=true;
                 }
+
                 peticion.append(requestString).append("\n");
-                if (requestString.equals("")) { break; }
+                if (requestString.equals("")) {
+                    break;
+                }
+
                 requestString = inClient.readLine();
+
             }
+
             System.out.println(peticion + "\n\n");
+
+            /*Bitacora*/
+            String consultaBitacora = peticion.toString();
+            String datos=""; //Se inicializa vacio
+
+            if (isPost) //Se debe recuperar la información adicional, el PostData es el numero en Bytes
+            {
+                postData=postData; //Quitar el espacio
+                char[] buffer= new char[postData];
+                int read = inClient.read(buffer);
+                // for each byte in the buffer
+                for (int i= 0; i<postData;++i) {
+                    datos+=buffer[i];
+                }
+            }
+
 
             switch (httpMethod) {
                 case "GET":
+                    //Verificar si trae parametros
+                    String getURL=httpQueryString;
+                    StringTokenizer token=new StringTokenizer(getURL, "?");
+
+                    /*--URL--*/
+                    String onlyURLGet=token.nextToken();
+
+                    /*--Parametros--*/
+                    if (token.hasMoreTokens())
+                    {datos=token.nextToken();}
+
+                    httpQueryString=onlyURLGet; //Ya dividido, lo devuelve al httpQuery para mandarselo a la bitacora
+
                     sendResponse(200, httpQueryString, "GET");
+
+                    /*Se envia la bitacora*/
+                    consultaBitacora(consultaBitacora, httpQueryString,datos);
                     break;
+
                 case "HEAD":
                     sendResponse(200, httpQueryString, "HEAD");
+                    /*Se envia la bitacora*/
+                    consultaBitacora(consultaBitacora, httpQueryString,datos);
                     break;
+
                 case "POST":
                     sendResponse(200, httpQueryString, "POST");
+                    /*Se envia la bitacora*/
+                    consultaBitacora(consultaBitacora, httpQueryString,datos);
                     break;
                 default:
                     sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR");
                     break;
             }
+
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -235,4 +297,82 @@ public class HTTPServer extends Thread {
             return tipo;
         }
     }
+
+    public void consultaBitacora(String peticionCompleta, String url, String datos) throws IOException //Agrega la consulta a la bitacora
+    {
+        /*Crea el objeto de la consulta*/
+        ConsultaGenerada nuevaConsulta = new ConsultaGenerada();
+
+
+        /*Llena los datos de la consulta*/
+        nuevaConsulta.setDatos(datos);
+
+        /*Obtiene el timestamp y lo inserta*/
+        Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+        String tsTiempo= Long.toString(timestamp.getTime());
+        nuevaConsulta.setEstampillaTiempo(tsTiempo);
+
+         /*Inserta el url que obtiene desde el HTTPQueryString*/
+        nuevaConsulta.setUrl(url);
+
+        String strDatos=peticionCompleta;
+        StringTokenizer tokensLinea=new StringTokenizer(strDatos, "\n");
+
+        /*--Primera linea--*/
+        String strLinea=tokensLinea.nextToken();
+       /*Inserta el metodo de la consulta en la bitacora*/
+        StringTokenizer tokensEspacio=new StringTokenizer(strLinea, " ");
+        String metodo = tokensEspacio.nextToken();
+        nuevaConsulta.setMetodo(metodo);
+
+
+        while (tokensLinea.hasMoreTokens()) {
+        /*--Obtiene la siguiente linea--*/
+            strLinea = tokensLinea.nextToken();
+            tokensEspacio = new StringTokenizer(strLinea, " ");
+
+        /*Se neccesita el segundo token*/
+            String tag = tokensEspacio.nextToken(); //Obtiene el Tag
+
+            if (tag.equals("Host:")) //Si es el Host
+            {
+                tag = tokensEspacio.nextToken();
+               /*Se parcea el host+puerto*/
+                StringTokenizer tokenHost = new StringTokenizer(tag, ":");
+                String isHost = tokenHost.nextToken();
+                //Lo inserta en el objeto
+                nuevaConsulta.setServidor(isHost);
+            }
+            else
+            {
+                if (tag.equals("Referer:")) //Obtiene el referer
+                {
+                    tag = tokensEspacio.nextToken();
+                    tag = tag.substring(7); //Se elimina el http://
+                     /*Se parcea el refiere+puerto*/
+                    StringTokenizer tokenRefiere = new StringTokenizer(tag, ":");
+                    /*Se debe obtener el segundo, el primero es el http*/
+                    String isRefiere = tokenRefiere.nextToken(); //Con '//'
+                    /*Lo inserta en el objeto*/
+                    nuevaConsulta.setRefiere(isRefiere);
+                }
+            }
+
+        }
+
+        /*Se encarga de manipular la nueva consulta*/
+        escribirTexto(nuevaConsulta);
+    }
+
+    public void escribirTexto(ConsultaGenerada nuevaConsulta) throws IOException
+    {
+         /*Añade la consulta a la bitacora de un txt*/
+        String fileNewLine=nuevaConsulta.getMetodo()+"\t" +nuevaConsulta.getEstampillaTiempo()+"\t"+ nuevaConsulta.getServidor()+"\t" +nuevaConsulta.getRefiere() + "\t"+nuevaConsulta.getUrl()+"\t"+nuevaConsulta.getDatos();
+        bitacora.add(nuevaConsulta);
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter("bitacora.txt",true));
+        writer.append(fileNewLine+"\n");
+        writer.close();
+    }
+
 }
