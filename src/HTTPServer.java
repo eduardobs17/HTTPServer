@@ -17,6 +17,7 @@ public class HTTPServer extends Thread {
     private final static String docRaiz = "html";
     private final static String fichGET = "index.html";
     private final static String fichPOST = "usuario.html";
+    private static String refiereHeader = "";
 
     /* Para la bitacora. */
     private List<ConsultaGenerada> bitacora = new ArrayList<>();
@@ -53,25 +54,27 @@ public class HTTPServer extends Thread {
             String httpMethod = tokenizer.nextToken();
             String httpQueryString = tokenizer.nextToken();
 
-
             System.out.println("La peticion HTTP es...");
             /* String que guarda la peticion. */
             StringBuilder peticion = new StringBuilder();
             int postData = 0;
-            int contador=0;
-            boolean isPost=false;
+            int contador = 0;
+            boolean isPost = false;
+            String accept = "";
 
             while (inClient.ready()) { //Aca es
                 if (requestString.contains("Content-Length:")) { //Eliminar una lina innecesaria
                     postData = Integer.valueOf(requestString.substring(requestString.indexOf("Content-Length:") + 16));
                     isPost=true;
                 }
+                if (requestString.contains("Accept:")) {
+                    accept = requestString.substring(requestString.indexOf("Accept:") + 7);
+                }
 
                 peticion.append(requestString).append("\n");
                 if (requestString.equals("")) { break; }
 
                 requestString = inClient.readLine();
-
             }
 
             System.out.println(peticion + "\n\n");
@@ -101,25 +104,26 @@ public class HTTPServer extends Thread {
                     if (token.hasMoreTokens()) { datos = new StringBuilder(token.nextToken()); }
 
                     httpQueryString = onlyURLGet; //Ya dividido, lo devuelve al httpQuery para mandarselo a la bitacora
-                    sendResponse(200, httpQueryString, "GET");
 
                     /*Se envia la bitacora*/
                     consultaBitacora(consultaBitacora, httpQueryString, datos.toString());
+
+                    sendResponse(200, httpQueryString, "GET", accept);
                     break;
 
                 case "HEAD":
-                    sendResponse(200, httpQueryString, "HEAD");
                     /*Se envia la bitacora*/
                     consultaBitacora(consultaBitacora, httpQueryString, datos.toString());
+                    sendResponse(200, httpQueryString, "HEAD", accept);
                     break;
 
                 case "POST":
-                    sendResponse(200, httpQueryString, "POST");
                     /*Se envia la bitacora*/
                     consultaBitacora(consultaBitacora, httpQueryString, datos.toString());
+                    sendResponse(200, httpQueryString, "POST", accept);
                     break;
                 default:
-                    sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR");
+                    sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR", "");
                     break;
             }
 
@@ -127,7 +131,7 @@ public class HTTPServer extends Thread {
     }
 
     /** Metodo usado para crear la respuesta para el cliente. */
-    private void sendResponse (int statusCode, String responseString, String tipoPeticion) {
+    private void sendResponse (int statusCode, String responseString, String tipoPeticion, String acceptPeticion) {
         String NEW_LINE = "\r\n";
 
         /* Crea las variables de los encabezados. */
@@ -135,13 +139,14 @@ public class HTTPServer extends Thread {
         String date = Headers.DATE + ": " + new Date().toString() + NEW_LINE;
         String serverdetails = Headers.SERVER + ": Servidor Java" + NEW_LINE;
         String contentTypeLine = Headers.CONTENT_TYPE + ": ";
+        String accept = Headers.ACCEPT + ": " + acceptPeticion + NEW_LINE;
 
         /* Pone el codigo status de la respuesta. */
         if (statusCode == 200) {
             statusLine = Status.HTTP_200;
         } else if (statusCode == 404) {
             statusLine = Status.HTTP_404;
-        } else if (statusCode == 4500) {
+        } else if (statusCode == 500) {
             statusLine = Status.HTTP_500;
         } else {
             statusLine = Status.HTTP_501;
@@ -164,12 +169,12 @@ public class HTTPServer extends Thread {
                 File f = new File(fich);
 
                 if (!f.exists()) {
-                    sendResponse(404, "<b>No se encontró el recurso.</b>", "ERROR");
+                    sendResponse(404, "<b>No se encontró el recurso.</b>", "ERROR", acceptPeticion);
                     return;
                 }
 
                 if (!f.canRead()) {
-                    sendResponse(500, "<b>Error interno.</b>", "ERROR");
+                    sendResponse(500, "<b>Error interno.</b>", "ERROR", acceptPeticion);
                      return;
                 }
 
@@ -177,13 +182,16 @@ public class HTTPServer extends Thread {
                 InputStream sin = new FileInputStream(f);
                 /* Identifica el tipo de la peticion. */
                 String tipoMime = MimeTypes.mimeTypeString(fich);
+                if (!acceptPeticion.equals(" */*") && !acceptPeticion.contains(tipoMime)) {
+                    statusLine = Status.HTTP_406;
+                }
                 contentTypeLine +=  tipoMime + NEW_LINE;
                 int n = sin.available();
 
                 statusLine += NEW_LINE;
                 contentLengthLine = Headers.CONTENT_LENGTH + ": " + n + NEW_LINE;
 
-                headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine);
+                headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine, accept);
 
                 /* Muestra los diferentes archivos en la pantalla del navegador. */
                 if (!tipoPeticion.equals("HEAD")) {
@@ -203,7 +211,7 @@ public class HTTPServer extends Thread {
                         statusCode + ". </b>" + responseString + "</body></html>";
                 contentLengthLine = Headers.CONTENT_LENGTH + ": " + responseString.length() + NEW_LINE;
 
-                headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine);
+                headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine, accept);
                 outClient.writeBytes(responseString);
                 outClient.close();
             } catch (IOException e) { System.out.println("ERROR"); }
@@ -211,12 +219,18 @@ public class HTTPServer extends Thread {
     }
 
     /** Metodo que escriba los encabezados. */
-    private void headers(String NEW_LINE, String statusLine, String contentLengthLine, String date, String serverdetails, String contentTypeLine) throws IOException {
+    private void headers(String NEW_LINE, String statusLine, String contentLengthLine, String date, String serverdetails, String contentTypeLine, String accept) throws IOException {
         outClient.writeBytes(statusLine);
         outClient.writeBytes(date);
         outClient.writeBytes(serverdetails);
         outClient.writeBytes(contentTypeLine);
         outClient.writeBytes(contentLengthLine);
+        if (refiereHeader.equals("")) {
+            outClient.writeBytes(Headers.REFIERE + ": localhost" + NEW_LINE);
+        } else {
+            outClient.writeBytes(Headers.REFIERE + ": " + refiereHeader + NEW_LINE);
+        }
+        outClient.writeBytes(accept);
         outClient.writeBytes(Headers.CONNECTION + ": close" + NEW_LINE);
 
         outClient.writeBytes(NEW_LINE);
@@ -272,6 +286,7 @@ public class HTTPServer extends Thread {
                     String isRefiere = tokenRefiere.nextToken(); //Con '//'
                     /*Lo inserta en el objeto*/
                     nuevaConsulta.setRefiere(isRefiere);
+                    refiereHeader = isRefiere;
                 }
             }
         }
@@ -300,6 +315,7 @@ public class HTTPServer extends Thread {
         static final String CONTENT_TYPE = "Content-Type";
         static final String DATE = "Date";
         static final String ACCEPT = "Accept";
+        static final String REFIERE = "Refiere";
     }
 
     /** Clase que maneja los codigos HTTP. */
