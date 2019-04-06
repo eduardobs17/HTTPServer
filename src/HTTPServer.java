@@ -18,7 +18,7 @@ public class HTTPServer extends Thread {
     private final static String fichGET = "index.html";
     private final static String fichPOST = "usuario.html";
 
-    // Para bitacora
+    /* Para la bitacora. */
     private List<ConsultaGenerada> bitacora = new ArrayList<>();
 
     public static void main(String[] args) throws Exception {
@@ -78,14 +78,14 @@ public class HTTPServer extends Thread {
 
             /* Bitacora */
             String consultaBitacora = peticion.toString();
-            String datos = ""; //Se inicializa vacio
+            StringBuilder datos = new StringBuilder(); //Se inicializa vacio
 
             if (isPost) { //Se debe recuperar la información adicional, el PostData es el numero en Bytes
                 postData = postData; //Quitar el espacio
                 char[] buffer= new char[postData];
                 int read = inClient.read(buffer);
                 // for each byte in the buffer
-                for (int i = 0; i < postData; ++i) { datos += buffer[i]; }
+                for (int i = 0; i < postData; ++i) { datos.append(buffer[i]); }
             }
 
             switch (httpMethod) {
@@ -98,25 +98,25 @@ public class HTTPServer extends Thread {
                     String onlyURLGet = token.nextToken();
 
                     /*--Parametros--*/
-                    if (token.hasMoreTokens()) { datos = token.nextToken(); }
+                    if (token.hasMoreTokens()) { datos = new StringBuilder(token.nextToken()); }
 
                     httpQueryString = onlyURLGet; //Ya dividido, lo devuelve al httpQuery para mandarselo a la bitacora
                     sendResponse(200, httpQueryString, "GET");
 
                     /*Se envia la bitacora*/
-                    consultaBitacora(consultaBitacora, httpQueryString,datos);
+                    consultaBitacora(consultaBitacora, httpQueryString, datos.toString());
                     break;
 
                 case "HEAD":
                     sendResponse(200, httpQueryString, "HEAD");
                     /*Se envia la bitacora*/
-                    consultaBitacora(consultaBitacora, httpQueryString,datos);
+                    consultaBitacora(consultaBitacora, httpQueryString, datos.toString());
                     break;
 
                 case "POST":
                     sendResponse(200, httpQueryString, "POST");
                     /*Se envia la bitacora*/
-                    consultaBitacora(consultaBitacora, httpQueryString,datos);
+                    consultaBitacora(consultaBitacora, httpQueryString, datos.toString());
                     break;
                 default:
                     sendResponse(501, "No se puede cumplir la petición en estos momentos.</b>", "ERROR");
@@ -128,8 +128,6 @@ public class HTTPServer extends Thread {
 
     /** Metodo usado para crear la respuesta para el cliente. */
     private void sendResponse (int statusCode, String responseString, String tipoPeticion) {
-        String HTML_START = "<html><title>Mini servidor HTTP</title><body>";
-        String HTML_END = "</body></html>";
         String NEW_LINE = "\r\n";
 
         /* Crea las variables de los encabezados. */
@@ -201,7 +199,8 @@ public class HTTPServer extends Thread {
         } else {
             try {
                 statusLine += NEW_LINE;
-                responseString = HTML_START + "<b>ERROR " + statusCode + ". </b>" + responseString + HTML_END;
+                responseString = "<html><title>Mini servidor HTTP</title><body>" + "<b>ERROR " +
+                        statusCode + ". </b>" + responseString + "</body></html>";
                 contentLengthLine = Headers.CONTENT_LENGTH + ": " + responseString.length() + NEW_LINE;
 
                 headers(NEW_LINE, statusLine, contentLengthLine, date, serverdetails, contentTypeLine);
@@ -223,62 +222,8 @@ public class HTTPServer extends Thread {
         outClient.writeBytes(NEW_LINE);
     }
 
-    /** Clase que maneja los encabezados. */
-    private static class Headers {
-        static final String SERVER = "Server";
-        static final String CONNECTION = "Connection";
-        static final String CONTENT_LENGTH = "Content-Length";
-        static final String CONTENT_TYPE = "Content-Type";
-        static final String DATE = "Date";
-        static final String ACCEPT = "Accept";
-    }
-
-    /** Clase que maneja los codigos HTTP. */
-    private static class Status {
-        static final String HTTP_200 = "HTTP/1.1 200 OK";
-        static final String HTTP_404 = "HTTP/1.1 404 Not Found";
-        static final String HTTP_406 = "HTTP/1.1 406 Not Acceptable";
-        static final String HTTP_500 = "HTTP/1.1 500 Internal Server Error";
-        static final String HTTP_501 = "HTTP/1.1 501 Not Implemented";
-    }
-
-    /** Clase que maneja los mime types. */
-    private static class MimeTypes {
-        private final static String mime_text_plain = "text/plain";
-        private final static String mime_text_html = "text/html";
-        private final static String mime_image_gif = "image/gif";
-        private final static String mime_image_jpg = "image/jpg";
-        private final static String mime_image_png = "image/png";
-        private final static String mime_audio_midi = "audio/midi";
-        private final static String mime_audio_mpeg = "audio/mpeg";
-        private final static String mime_app_os = "application/octet-stream";
-
-        /** Devuelve el tipo MIME que corresponde a un nombre de archivo dado. */
-        static String mimeTypeString(String fichero) {
-            String tipo;
-
-            if (fichero.endsWith(".html") || fichero.endsWith(".htm"))
-                tipo = mime_text_html;
-            else if (fichero.endsWith(".class"))
-                tipo = mime_app_os;
-            else if (fichero.endsWith(".gif"))
-                tipo = mime_image_gif;
-            else if (fichero.endsWith(".jpg") || fichero.endsWith(".jpeg"))
-                tipo = mime_image_jpg;
-            else if (fichero.endsWith(".png"))
-                tipo = mime_image_png;
-            else if (fichero.endsWith(".mid"))
-                tipo = mime_audio_midi;
-            else if (fichero.endsWith(".mpeg") || fichero.endsWith(".mpg") || fichero.endsWith(".mp1") || fichero.endsWith(".mp2") || fichero.endsWith(".mp3"))
-                tipo = mime_audio_mpeg;
-            else
-                tipo = mime_text_plain;
-
-            return tipo;
-        }
-    }
-
-    private void consultaBitacora(String peticionCompleta, String url, String datos) throws IOException { //Agrega la consulta a la bitacora
+    /** Agrega la consulta a la bitácora. */
+    private void consultaBitacora(String peticionCompleta, String url, String datos) throws IOException {
         /*Crea el objeto de la consulta*/
         ConsultaGenerada nuevaConsulta = new ConsultaGenerada();
 
@@ -335,8 +280,8 @@ public class HTTPServer extends Thread {
         escribirTexto(nuevaConsulta);
     }
 
+    /** Añade la consulta a la bitacora de un txt. */
     private void escribirTexto(ConsultaGenerada nuevaConsulta) throws IOException {
-        /*Añade la consulta a la bitacora de un txt*/
         String fileNewLine = nuevaConsulta.getMetodo() + "\t" +
                 nuevaConsulta.getEstampillaTiempo() + "\t" + nuevaConsulta.getServidor() + "\t" +
                 nuevaConsulta.getRefiere() + "\t"+ nuevaConsulta.getUrl() + "\t" + nuevaConsulta.getDatos();
@@ -345,5 +290,60 @@ public class HTTPServer extends Thread {
         BufferedWriter writer = new BufferedWriter(new FileWriter("bitacora.txt",true));
         writer.append(fileNewLine).append("\n");
         writer.close();
+    }
+
+    /** Clase que maneja los encabezados. */
+    private static class Headers {
+        static final String SERVER = "Server";
+        static final String CONNECTION = "Connection";
+        static final String CONTENT_LENGTH = "Content-Length";
+        static final String CONTENT_TYPE = "Content-Type";
+        static final String DATE = "Date";
+        static final String ACCEPT = "Accept";
+    }
+
+    /** Clase que maneja los codigos HTTP. */
+    private static class Status {
+        static final String HTTP_200 = "HTTP/1.1 200 OK";
+        static final String HTTP_404 = "HTTP/1.1 404 Not Found";
+        static final String HTTP_406 = "HTTP/1.1 406 Not Acceptable";
+        static final String HTTP_500 = "HTTP/1.1 500 Internal Server Error";
+        static final String HTTP_501 = "HTTP/1.1 501 Not Implemented";
+    }
+
+    /** Clase que maneja los mime types. */
+    private static class MimeTypes {
+        private final static String mime_text_plain = "text/plain";
+        private final static String mime_text_html = "text/html";
+        private final static String mime_image_gif = "image/gif";
+        private final static String mime_image_jpg = "image/jpg";
+        private final static String mime_image_png = "image/png";
+        private final static String mime_audio_midi = "audio/midi";
+        private final static String mime_audio_mpeg = "audio/mpeg";
+        private final static String mime_app_os = "application/octet-stream";
+
+        /** Devuelve el tipo MIME que corresponde a un nombre de archivo dado. */
+        static String mimeTypeString(String fichero) {
+            String tipo;
+
+            if (fichero.endsWith(".html") || fichero.endsWith(".htm"))
+                tipo = mime_text_html;
+            else if (fichero.endsWith(".class"))
+                tipo = mime_app_os;
+            else if (fichero.endsWith(".gif"))
+                tipo = mime_image_gif;
+            else if (fichero.endsWith(".jpg") || fichero.endsWith(".jpeg"))
+                tipo = mime_image_jpg;
+            else if (fichero.endsWith(".png"))
+                tipo = mime_image_png;
+            else if (fichero.endsWith(".mid"))
+                tipo = mime_audio_midi;
+            else if (fichero.endsWith(".mpeg") || fichero.endsWith(".mpg") || fichero.endsWith(".mp1") || fichero.endsWith(".mp2") || fichero.endsWith(".mp3"))
+                tipo = mime_audio_mpeg;
+            else
+                tipo = mime_text_plain;
+
+            return tipo;
+        }
     }
 }

@@ -1,5 +1,4 @@
-
-public class ConsultaGenerada {
+class ConsultaGenerada {
 
     private String metodo;
     private String estampillaTiempo;
@@ -8,57 +7,33 @@ public class ConsultaGenerada {
     private String url;
     private String datos;
 
-    public  ConsultaGenerada ()
-    {
+    /** Clase que simula las consultas del server. */
+    ConsultaGenerada() {
         refiere= "[vacio]";
         datos= "[vacio]";
     }
 
-    public String getMetodo() {
-        return metodo;
-    }
+    String getMetodo() { return metodo; }
 
-    public String getEstampillaTiempo() {
-        return estampillaTiempo;
-    }
+    String getEstampillaTiempo() { return estampillaTiempo; }
 
-    public String getServidor() {
-        return servidor;
-    }
+    String getServidor() { return servidor; }
 
-    public String getRefiere() {
-        return refiere;
-    }
+    String getRefiere() { return refiere; }
 
-    public String getUrl() {
-        return url;
-    }
+    String getUrl() { return url; }
 
-    public String getDatos() {
-        return datos;
-    }
+    String getDatos() { return datos; }
 
-    public void setMetodo(String metodo) {
-        this.metodo = metodo;
-    }
+    void setMetodo(String metodo) { this.metodo = metodo; }
 
-    public void setEstampillaTiempo(String estampillaTiempo) {
-        this.estampillaTiempo = estampillaTiempo;
-    }
+    void setEstampillaTiempo(String estampillaTiempo) { this.estampillaTiempo = estampillaTiempo; }
 
-    public void setServidor(String servidor) {
-        this.servidor = servidor;
-    }
+    void setServidor(String servidor) { this.servidor = servidor; }
 
-    public void setRefiere(String refiere) {
-        this.refiere = refiere;
-    }
+    void setRefiere(String refiere) { this.refiere = refiere; }
 
-    public void setUrl(String url) {
-        this.url = url;
-    }
+    void setUrl(String url) { this.url = url; }
 
-    public void setDatos(String datos) {
-        this.datos = datos;
-    }
+    void setDatos(String datos) { this.datos = datos; }
 }
