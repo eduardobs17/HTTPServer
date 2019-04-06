@@ -1,0 +1,13 @@
+GET	1554590771162	localhost	[vacio]	/	
+GET	1554590829536	localhost	[vacio]	/	
+GET	1554590876131	localhost	[vacio]	/index.html	
+GET	1554590900538	localhost	[vacio]	/index.html	
+GET	1554590943394	localhost	[vacio]	/	
+GET	1554590959892	localhost	[vacio]	/homero.gif	
+HEAD	1554590980799	localhost	[vacio]	/	
+POST	1554591007695	localhost	[vacio]	/	mensaje=Hola+Mundo
+POST	1554591034425	localhost	[vacio]	/index.html	mensaje=Hola+Mundo
+GET	1554591066531	localhost	[vacio]	/pruebaerror.html	
+GET	1554591076939	localhost	[vacio]	/pruebaerror.html	
+GET	1554591557224	localhost	[vacio]	/	
+POST	1554591562818	localhost	localhost	/usuario	user=eduardo
